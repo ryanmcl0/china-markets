@@ -1,0 +1,122 @@
+# China Energy Market Monitor — config template
+# Copy to config.yaml (gitignored) and edit for your watchlist.
+# Restart after changes: docker compose restart cn-market-monitor
+
+# ── SECTOR ───────────────────────────────────────────────────────────────────
+sector:
+  name: "China Energy Market"
+  primary_language: "zh"
+  secondary_language: "en"
+  market_hours: "09:30-15:00"
+  market_timezone: "Asia/Shanghai"
+
+# ── WATCHLIST ─────────────────────────────────────────────────────────────────
+# exchange: XSHE = Shenzhen | XSHG = Shanghai | HKEX = Hong Kong
+# status: watching / holding / exited
+# portfolio_weight: decimal, e.g. 0.10 = 10%
+
+watchlist:
+  - ticker: "002255"
+    name_en: "Suzhou Hailu Heavy Industry"
+    name_zh: "苏州海陆重工"
+    exchange: "XSHE"
+    currency: "CNY"
+    gtc_limit: 10.50
+    portfolio_weight: 0.15
+    status: "watching"
+    horizon: "5-10 years"
+    thesis: "Your investment thesis here — injected into every LLM prompt for this stock."
+    tags: [core]
+
+  - ticker: "3750"
+    name_en: "CATL"
+    name_zh: "宁德时代"
+    exchange: "HKEX"
+    currency: "HKD"
+    gtc_limit: 628.00
+    portfolio_weight: 0.15
+    status: "watching"
+    horizon: "5-10 years"
+    thesis: "Your thesis here."
+    tags: [core]
+
+# ── KEYWORDS ─────────────────────────────────────────────────────────────────
+# Used to filter Reddit and RSS content.
+# AKShare pulls per-ticker directly — keywords not needed there.
+keywords:
+  tickers:
+    - "002255"
+    - "3750"
+  companies_en:
+    - "Suzhou Hailu"
+    - "CATL"
+    - "Contemporary Amperex"
+  companies_zh:
+    - "苏州海陆"
+    - "宁德时代"
+  sector_terms:
+    - "China energy"
+    - "energy storage"
+    - "battery"
+
+# ── DATA SOURCES ──────────────────────────────────────────────────────────────
+akshare:
+  poll_interval_minutes: 20
+  news_limit: 20
+  include_hk: true
+
+reddit:
+  enabled: false              # requires REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET in .env
+  poll_interval_minutes: 30
+  subreddits:
+    - r/EmergingMarkets
+    - r/ChinaStocks
+
+rss:
+  enabled: false
+  poll_interval_minutes: 30
+  feeds:
+    - name: "Yicai Global"
+      url: "https://www.yicaiglobal.com/rss"
+
+# ── INVESTOR PROFILE ─────────────────────────────────────────────────────────
+# Injected into every LLM prompt for personalised recommendations.
+investor:
+  type: "long-term retail investor"
+  country: "UK"
+  horizon: "5-10 years"
+  bias: "buy dips, do not chase spikes"
+  risk_tolerance: "medium-high"
+  notes: >
+    Interested in thesis-confirming news above all else.
+    Prefers to enter on weakness rather than momentum.
+    Not a day trader — ignores short-term noise.
+
+# ── INVESTING RULES ───────────────────────────────────────────────────────────
+# Checked by the LLM against every recommendation.
+investing_rules:
+  - "Never recommend chasing a stock that has risen >15% in a single session"
+  - "Only recommend adding to a position if the original thesis is confirmed"
+  - "A falling RSI below 35 alongside bullish news is a stronger buy signal than bullish news alone"
+  - "Dissemination across multiple sources within 2 hours is a signal amplifier, not noise"
+
+# ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
+notifications:
+  score_immediate: 9          # push any time, day or night
+  score_market_hours: 7       # push during market hours only
+  score_digest_only: 5        # include in /summary only
+  score_discard: 4            # store in DB, never notify
+  daily_digest_time: "08:00"  # local time for morning digest
+  digest_timezone: "Europe/London"
+  quiet_hours:
+    enabled: true
+    timezone: "Europe/London"
+    start: "23:00"
+    end: "07:00"
+
+# ── LLM ──────────────────────────────────────────────────────────────────────
+llm:
+  model: "qwen2.5:3b-instruct-q4_K_M"  # ~2.0 GB RAM, fast on 8 GB NAS
+  # model: "qwen2.5:7b"                # ~4.5 GB RAM, higher quality
+  temperature: 0.2
+  max_tokens: 1024

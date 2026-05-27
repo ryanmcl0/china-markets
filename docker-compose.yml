@@ -1,0 +1,14 @@
+services:
+
+  cn-market-monitor:
+    build: .
+    env_file: .env
+    environment:
+      OLLAMA_URL: http://localhost:11434
+      OLLAMA_KEEP_ALIVE: "0s"
+      DB_PATH: /app/data/china.db
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ./data:/app/data
+    restart: unless-stopped
