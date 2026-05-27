@@ -1,0 +1,6 @@
+# This file defines who owns the code in the repository.
+# For more information, see: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# The '*' matches all files in the repository.
+# Only @ryanmcl0's approval will satisfy the "Require review from Code Owners" branch protection rule.
+* @ryanmcl0

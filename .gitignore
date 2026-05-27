@@ -216,3 +216,12 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+/plans
+.DS_Store
+
+# China Energy Monitor — local state and secrets
+config.yaml
+data/
+*.bak
+MY_SETUP.md
