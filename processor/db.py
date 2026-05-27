@@ -88,6 +88,20 @@ def connect():
         conn.close()
 
 
+def get_post_by_hash(url_hash: str) -> dict[str, Any] | None:
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM posts WHERE url_hash = ?", (url_hash,)).fetchone()
+        return dict(row) if row else None
+
+
+def update_dissemination(url_hash: str, count: int) -> None:
+    with connect() as conn:
+        conn.execute(
+            "UPDATE posts SET dissemination_count = ?, processed_at = ? WHERE url_hash = ?",
+            (count, datetime.now(timezone.utc).isoformat(), url_hash),
+        )
+
+
 def insert_post(post: dict[str, Any], llm_out: dict[str, Any]) -> int:
     analyst = llm_out.get("analyst") or {}
     technical = llm_out.get("technical") or {}

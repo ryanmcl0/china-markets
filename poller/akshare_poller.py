@@ -66,22 +66,24 @@ def _rsi(close: pd.Series, period: int = 14) -> float | None:
 
 def get_technical_context(symbol: str, exchange: str) -> dict[str, Any] | None:
     """Fetch history and compute RSI + MA20 features."""
-    # We do NOT check global cooldown here anymore, as that's for news.
-    
     close = pd.Series()
-    max_attempts = 2 # Reduced attempts to be less aggressive
+    max_attempts = 2 
     
     for attempt in range(max_attempts):
         try:
             if exchange in ("XSHE", "XSHG"):
-                # A-share history (Eastmoney)
-                hist = ak.stock_zh_a_hist(symbol=symbol, period="daily", start_date="20250101", adjust="qfq")
+                # Use SINA for A-shares (much more bot-friendly than Eastmoney)
+                prefix = "sh" if exchange == "XSHG" else "sz"
+                sina_symbol = f"{prefix}{symbol}"
+                # Sina daily history is usually very stable
+                hist = ak.stock_zh_a_daily(symbol=sina_symbol, start_date="20250101", adjust="qfq")
             else:
-                # HK history (Eastmoney)
+                # Keep Eastmoney for HK (no Sina equivalent in AKShare for daily HK)
                 hist = ak.stock_hk_hist(symbol=symbol, period="daily", start_date="20250101", adjust="qfq")
             
             if hist is not None and not hist.empty:
-                col = next((c for c in ["收盘", "close", "Close"] if c in hist.columns), None)
+                # Sina uses lowercase "close", Eastmoney uses "收盘"
+                col = next((c for c in ["close", "收盘", "Close"] if c in hist.columns), None)
                 if col:
                     close = pd.to_numeric(hist[col], errors="coerce").dropna()
                     if not close.empty:
@@ -98,8 +100,6 @@ def get_technical_context(symbol: str, exchange: str) -> dict[str, Any] | None:
                     time.sleep(wait)
                     continue
                 else:
-                    # We failed technical data, but we DON'T trigger a global cooldown.
-                    # Just return None so we can proceed with news.
                     return None
             
             if attempt == max_attempts - 1:

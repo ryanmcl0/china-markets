@@ -2,6 +2,7 @@
 set -e
 
 export OLLAMA_MODELS="${OLLAMA_MODELS:-/app/data/ollama}"
+export OLLAMA_KEEP_ALIVE="${OLLAMA_KEEP_ALIVE:-0s}"
 mkdir -p "$OLLAMA_MODELS"
 
 ollama serve &
