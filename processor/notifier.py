@@ -44,6 +44,8 @@ def send_message(text: str, chat_id: str | None = None) -> int | None:
         logger.error("no chat_ids configured")
         return None
 
+    logger.info("OUTGOING MESSAGE CONTENT:\n%s", text)
+
     first_id: int | None = None
     for cid in targets:
         logger.info("attempting push notification to chat_id=%s", cid)
