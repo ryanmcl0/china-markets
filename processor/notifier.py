@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import html
 import logging
 import os
@@ -119,9 +120,66 @@ _ACTION_LABEL = {
     "no_action": "⚪️ NO ACTION",
 }
 
+_DISSEMINATION_LABEL = {
+    "viral": "Viral — spreading fast",
+    "spreading": "Spreading across sources",
+    "isolated": "Isolated — single source",
+}
+
+_DIVERGENCE_LABEL = {
+    "sentiment_leads_price": "Sentiment leads price",
+    "price_leads_sentiment": "Price leads sentiment",
+    "aligned": "Aligned",
+    "none": "",
+}
+
 
 def _esc(s: Any) -> str:
     return html.escape(str(s)) if s is not None else ""
+
+
+def _snake_to_title(s: str) -> str:
+    return " ".join(w.capitalize() for w in s.split("_"))
+
+
+def _dissemination_label(signal: str) -> str:
+    key = (signal or "isolated").lower()
+    return _DISSEMINATION_LABEL.get(key, _snake_to_title(key))
+
+
+def _divergence_label(divergence: str) -> str:
+    key = (divergence or "none").lower()
+    return _DIVERGENCE_LABEL.get(key, _snake_to_title(key))
+
+
+def _format_source(source: str) -> str:
+    return _snake_to_title(source or "unknown")
+
+
+def _sources_str(count: int) -> str:
+    return f"{count} source" if count == 1 else f"{count} sources"
+
+
+def _header_emoji(score: int) -> str:
+    if score >= 9:
+        return "🔴"
+    if score >= 7:
+        return "🟠"
+    return "🟡"
+
+
+def _format_rules(rules: Any) -> str:
+    if not rules:
+        return ""
+    s = str(rules).strip()
+    if s.startswith("[") and s.endswith("]"):
+        try:
+            items = ast.literal_eval(s)
+            if isinstance(items, list):
+                return "\n".join(f"• {item}" for item in items)
+        except Exception:
+            pass
+    return s
 
 
 def format_alert(post: dict[str, Any], analysis: dict[str, Any]) -> str:
@@ -131,72 +189,94 @@ def format_alert(post: dict[str, Any], analysis: dict[str, Any]) -> str:
     tech_ctx = post.get("technical") or {}
 
     score = pm.get("relevance_score", 0)
-    urgency = (pm.get("urgency") or "").upper() or "?"
-    sentiment = (analyst.get("sentiment") or "neutral").lower()
-    sentiment_label = _SENTIMENT_EMOJI.get(sentiment, "🟡") + " " + sentiment.title()
     action = (pm.get("recommendation") or "no_action").lower()
     action_label = _ACTION_LABEL.get(action, action.upper())
+    confidence = (pm.get("confidence") or "").title()
+    horizon = (pm.get("time_horizon") or "").title()
 
-    ticker_label = post.get("ticker") or "—"
-    name = post.get("name_en") or post.get("name_zh") or ""
+    ticker = post.get("ticker") or "—"
+    name = post.get("name_en") or post.get("name_zh") or ticker
+    source = _format_source(post.get("source") or "")
     dissem = post.get("dissemination_count", 1)
 
-    header_signal = "HIGH SIGNAL" if score >= 9 else ("MEDIUM SIGNAL" if score >= 7 else "SIGNAL")
-
-    tech_lines: list[str] = []
-    if tech_ctx:
-        change = tech_ctx.get("change_pct", 0)
+    # ── Header ──────────────────────────────────────────────
+    body = []
+    if tech_ctx and tech_ctx.get("change_pct") is not None:
+        change = tech_ctx["change_pct"]
         change_emoji = "📉" if change < 0 else "📈"
-        tech_lines.append(
-            f"{change_emoji} <b>TECHNICAL:</b> {change}% today | "
-            f"RSI {tech_ctx.get('rsi')} ({tech_ctx.get('rsi_signal')}) "
-            f"| {tech_ctx.get('ma20_pct')}% vs MA20 ({tech_ctx.get('vs_ma20')})"
-        )
-    divergence = (technical.get("divergence") or "").lower()
-    if divergence and divergence != "none":
-        note = technical.get("divergence_note") or ""
-        tech_lines.append(f"🔀 <b>DIVERGENCE:</b> {_esc(divergence)} — {_esc(note)}")
+        body.append(f"{change_emoji} <b>{_esc(name)}</b>  ·  {change:+.1f}%")
+    else:
+        body.append(f"📊 <b>{_esc(name)}</b>")
+
+    subtitle_parts = [f"${_esc(ticker)}", f"Score {score}/10", _esc(source)]
+    if dissem > 1:
+        subtitle_parts.append(_sources_str(dissem))
+    body.append(f"<i>{' · '.join(subtitle_parts)}</i>")
+
+    # ── What happened ────────────────────────────────────────
+    summary = analyst.get("summary") or ""
+    if summary:
+        body.append("")
+        body.append(_esc(summary))
 
     translation = analysis.get("translation")
-    body = []
-    body.append(f"🔴 <b>{_esc(header_signal)}</b> — {_esc(post.get('source', '?'))} | "
-                f"Score: {_esc(score)}/10 | {_esc(dissem)} source(s) in 2hrs")
-    body.append("")
-    body.append(f"📊 <b>STOCK:</b> ${_esc(ticker_label)} {_esc(name)}")
-    body.append(f"💬 <b>SENTIMENT:</b> {sentiment_label} | "
-                f"🏷️ {_esc((analyst.get('category') or 'other').upper())}")
-    body.append(f"📡 <b>DISSEMINATION:</b> {_esc(analyst.get('dissemination_signal') or 'isolated')}")
-    body.append("")
-    body.extend(tech_lines)
-    if tech_lines:
-        body.append("")
-    body.append("📝 <b>ANALYST</b>")
-    body.append(_esc(analyst.get("summary") or ""))
-    body.append(f"Credibility: {_esc(analyst.get('credibility') or '?')}. "
-                f"New information: {'Yes' if analyst.get('is_new_information') else 'No'}.")
     if translation and translation != post.get("text"):
+        body.append(f"<i>{_esc(translation)}</i>")
+
+    # ── Key facts (bullets) ──────────────────────────────────
+    bullets: list[str] = []
+    if tech_ctx:
+        rsi = tech_ctx.get("rsi")
+        rsi_sig = tech_ctx.get("rsi_signal") or ""
+        vs_ma20 = tech_ctx.get("vs_ma20") or ""
+        ma20_pct = abs(tech_ctx.get("ma20_pct") or 0)
+        parts = []
+        if rsi is not None:
+            parts.append(f"RSI {rsi} ({rsi_sig})")
+        if vs_ma20:
+            parts.append(f"{ma20_pct}% {vs_ma20} 20-day MA")
+        if parts:
+            bullets.append(" · ".join(parts))
+
+    divergence = (technical.get("divergence") or "none").lower()
+    if divergence not in ("none", "aligned", ""):
+        div_label = _divergence_label(divergence)
+        note = technical.get("divergence_note") or ""
+        line = div_label
+        if note:
+            line += f" — {note}"
+        bullets.append(line)
+
+    dissem_signal = (analyst.get("dissemination_signal") or "").lower()
+    if dissem_signal == "viral":
+        bullets.append("Spreading rapidly across multiple sources")
+
+    if bullets:
         body.append("")
-        body.append(f"<i>Translation:</i> {_esc(translation)}")
+        for b in bullets:
+            body.append(f"· {_esc(b)}")
+
+    # ── Recommendation ───────────────────────────────────────
     body.append("")
     body.append("━━━━━━━━━━━━━━━━━━━━")
-    body.append("⚡ <b>PORTFOLIO MANAGER</b>")
+    pm_header = f"<b>{_esc(action_label)}</b>"
+    meta = "  ·  ".join(p for p in [confidence, horizon] if p)
+    if meta:
+        pm_header += f"  ·  {_esc(meta)}"
+    body.append(pm_header)
     body.append("━━━━━━━━━━━━━━━━━━━━")
-    body.append(f"<b>{_esc(action_label)}</b>")
-    body.append(f"Confidence: {_esc(pm.get('confidence') or '?').title()} | "
-                f"Horizon: {_esc(pm.get('time_horizon') or '?').title()} | Urgency: {_esc(urgency)}")
     body.append("")
     body.append(_esc(pm.get("reasoning") or ""))
-    rules = pm.get("rules_checked")
-    if rules:
-        body.append(f"\n⚠️ Rules: {_esc(rules)}")
+
     conditions = pm.get("conditions")
     if conditions:
-        body.append(f"⚠️ Condition: {_esc(conditions)}")
-    body.append("━━━━━━━━━━━━━━━━━━━━")
+        body.append(f"\n⚠️ {_esc(conditions)}")
+
     url = post.get("url")
     if url:
         body.append(f'\n<a href="{_esc(url)}">View Original</a>')
-    body.append("\n⚠️ AI-generated. Not financial advice. Your call.")
+
+    body.append("\n<i>AI-generated. Not financial advice. Your call.</i>")
     return "\n".join(body)
 
 
