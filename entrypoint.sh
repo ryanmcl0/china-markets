@@ -5,9 +5,10 @@ export OLLAMA_MODELS="${OLLAMA_MODELS:-/app/data/ollama}"
 export OLLAMA_KEEP_ALIVE="${OLLAMA_KEEP_ALIVE:-0s}"
 mkdir -p "$OLLAMA_MODELS"
 
+echo "Bootstrapping Ollama for model check..."
 ollama serve &
+BOOTSTRAP_PID=$!
 
-echo "Waiting for ollama..."
 for i in $(seq 1 60); do
     if curl -sf http://localhost:11434/api/tags >/dev/null 2>&1; then
         echo "Ollama ready"
@@ -22,4 +23,9 @@ if ! ollama list 2>/dev/null | grep -qF "$MODEL"; then
     ollama pull "$MODEL"
 fi
 
+echo "Stopping bootstrap Ollama..."
+kill $BOOTSTRAP_PID
+wait $BOOTSTRAP_PID 2>/dev/null || true
+
+echo "Starting Market Monitor (Ollama will start on-demand)..."
 exec python /app/processor/worker.py
