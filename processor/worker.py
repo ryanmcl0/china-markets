@@ -102,6 +102,13 @@ def _process_post(post: dict) -> None:
     score = int(pm.get("relevance_score") or 0)
     urgency = (pm.get("urgency") or "low").lower()
 
+    # FORCE PRICE ALERTS: If this is a dedicated price alert, we override
+    # the scoring to ensure it bypasses filters and notifies the user.
+    is_price_alert = post.get("source") == "price_alert"
+    if is_price_alert:
+        score = 10
+        urgency = "high"
+
     try:
         post_id = db.insert_post(post, analysis)
     except Exception:
@@ -109,11 +116,13 @@ def _process_post(post: dict) -> None:
         post_id = None
 
     threshold = config.get("notifications", {}).get("score_discard", 4)
-    if score <= threshold:
+    # Price alerts bypass discard
+    if not is_price_alert and score <= threshold:
         log.info("discard score=%d hash=%s", score, post.get("content_hash"))
         return
 
-    if not notifier.should_notify(score, urgency, config, market_open=_is_market_open(config)):
+    # Price alerts bypass should_notify check (immediate Telegram push)
+    if not is_price_alert and not notifier.should_notify(score, urgency, config, market_open=_is_market_open(config)):
         log.info("queued for digest score=%d", score)
         return
 
