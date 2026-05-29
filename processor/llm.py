@@ -12,6 +12,9 @@ import json
 import logging
 import os
 import re
+import subprocess
+import time
+from contextlib import contextmanager
 from typing import Any
 
 import requests
@@ -20,6 +23,42 @@ logger = logging.getLogger(__name__)
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 DEFAULT_TIMEOUT = 300
+
+
+# ──────────────────────────────────────────────────────────
+# JIT Lifecycle Management
+# ──────────────────────────────────────────────────────────
+
+@contextmanager
+def ollama_context():
+    """Start Ollama runner, wait for readiness, then terminate after use."""
+    proc = None
+    try:
+        logger.info("JIT: starting ollama runner...")
+        proc = subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        # Wait for readiness
+        for _ in range(30):
+            try:
+                r = requests.get(f"{OLLAMA_URL}/api/tags", timeout=1)
+                if r.status_code == 200:
+                    break
+            except Exception:
+                pass
+            time.sleep(1)
+        else:
+            logger.error("JIT: ollama failed to start in 30s")
+            
+        yield
+        
+    finally:
+        if proc:
+            logger.info("JIT: terminating ollama runner...")
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
 
 
 # ──────────────────────────────────────────────────────────
@@ -97,6 +136,7 @@ def build_monitoring_prompt(post: dict[str, Any], config: dict[str, Any]) -> str
     if tech:
         tech_line = (
             f"TECHNICAL CONTEXT for {ticker}:\n"
+            f"Daily Change: {tech.get('change_pct')}% | "
             f"RSI: {tech.get('rsi')} ({tech.get('rsi_signal')}) | "
             f"Price: {tech.get('current_price')} | "
             f"{tech.get('ma20_pct')}% vs 20-day MA ({tech.get('vs_ma20')})"
@@ -191,6 +231,7 @@ def _generate(prompt: str, model: str, temperature: float, max_tokens: int, syst
             "temperature": temperature,
             "num_predict": max_tokens,
         },
+        "keep_alive": 0,  # Release memory immediately after response
     }
     if system:
         payload["system"] = system
@@ -204,16 +245,19 @@ def analyse_post(post: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]
     """Run the full monitoring prompt and return the parsed JSON output."""
     llm_cfg = config.get("llm", {})
     model = llm_cfg.get("model", "qwen2.5:3b-instruct-q4_K_M")
-    logger.info("analysing post with model=%s", model)
-    prompt = build_monitoring_prompt(post, config)
-    raw = _generate(
-        prompt,
-        model=model,
-        temperature=llm_cfg.get("temperature", 0.2),
-        max_tokens=llm_cfg.get("max_tokens", 1024),
-        system=SYSTEM_PROMPT,
-    )
-    parsed = _extract_json(raw)
+    
+    with ollama_context():
+        logger.info("analysing post with model=%s", model)
+        prompt = build_monitoring_prompt(post, config)
+        raw = _generate(
+            prompt,
+            model=model,
+            temperature=llm_cfg.get("temperature", 0.2),
+            max_tokens=llm_cfg.get("max_tokens", 1024),
+            system=SYSTEM_PROMPT,
+        )
+        parsed = _extract_json(raw)
+        
     if parsed is None:
         logger.warning("LLM returned non-JSON output, falling back to no_action")
         return {
@@ -256,12 +300,13 @@ Respond with one letter only.
 
 MESSAGE: {message.strip()}
 """
-    raw = _generate(
-        prompt,
-        model=model,
-        temperature=0.0,
-        max_tokens=4,
-    )
+    with ollama_context():
+        raw = _generate(
+            prompt,
+            model=model,
+            temperature=0.0,
+            max_tokens=4,
+        )
     letter = (raw or "").strip().upper()[:1]
     return letter if letter in {"A", "B", "C", "D"} else "D"
 
@@ -278,9 +323,11 @@ def chat(messages: list[dict[str, str]], system_prompt: str, config: dict[str, A
             "temperature": llm_cfg.get("temperature", 0.2),
             "num_predict": llm_cfg.get("max_tokens", 1024),
         },
+        "keep_alive": 0,
     }
-    r = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=DEFAULT_TIMEOUT)
-    r.raise_for_status()
+    with ollama_context():
+        r = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=DEFAULT_TIMEOUT)
+        r.raise_for_status()
     return (r.json().get("message") or {}).get("content", "")
 
 
@@ -308,10 +355,11 @@ Schema:
 Set confirmation_required to true if the action removes data (remove_stock, sell-all).
 MESSAGE: {message.strip()}
 """
-    raw = _generate(
-        prompt,
-        model=model,
-        temperature=0.0,
-        max_tokens=512,
-    )
+    with ollama_context():
+        raw = _generate(
+            prompt,
+            model=model,
+            temperature=0.0,
+            max_tokens=512,
+        )
     return _extract_json(raw)

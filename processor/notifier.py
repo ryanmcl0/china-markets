@@ -143,8 +143,11 @@ def format_alert(post: dict[str, Any], analysis: dict[str, Any]) -> str:
 
     tech_lines: list[str] = []
     if tech_ctx:
+        change = tech_ctx.get("change_pct", 0)
+        change_emoji = "📉" if change < 0 else "📈"
         tech_lines.append(
-            f"📈 <b>TECHNICAL:</b> RSI {tech_ctx.get('rsi')} ({tech_ctx.get('rsi_signal')}) "
+            f"{change_emoji} <b>TECHNICAL:</b> {change}% today | "
+            f"RSI {tech_ctx.get('rsi')} ({tech_ctx.get('rsi_signal')}) "
             f"| {tech_ctx.get('ma20_pct')}% vs MA20 ({tech_ctx.get('vs_ma20')})"
         )
     divergence = (technical.get("divergence") or "").lower()
