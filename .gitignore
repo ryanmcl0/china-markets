@@ -225,3 +225,5 @@ config.yaml
 data/
 *.bak
 MY_SETUP.md
+
+notes.txt
