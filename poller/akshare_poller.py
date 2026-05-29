@@ -116,6 +116,9 @@ def get_technical_context(symbol: str, exchange: str) -> dict[str, Any] | None:
 
     ma20 = close.rolling(20).mean().iloc[-1]
     current = float(close.iloc[-1])
+    prev_close = float(close.iloc[-2]) if len(close) >= 2 else current
+    change_pct = round(((current - prev_close) / prev_close) * 100, 2)
+
     if math.isnan(ma20):
         return None
     ma20 = float(ma20)
@@ -127,6 +130,7 @@ def get_technical_context(symbol: str, exchange: str) -> dict[str, Any] | None:
         "vs_ma20": "above" if current > ma20 else "below",
         "ma20_pct": ma20_pct,
         "current_price": round(current, 4),
+        "change_pct": change_pct,
         "fetched_at": int(time.time()),
     }
 
@@ -241,6 +245,34 @@ def poll_once(config: dict[str, Any]) -> dict[str, int]:
         
         # Another small delay between tech and news fetch
         time.sleep(random.uniform(1.0, 3.0))
+
+        # PRICE ALERT CHECK: Even if no news, check for significant drops.
+        if technical:
+            change = technical.get("change_pct", 0)
+            alert_threshold = config.get("notifications", {}).get("price_drop_alert", -5.0)
+            if change <= alert_threshold:
+                alert_post = {
+                    "source": "price_alert",
+                    "ticker": ticker,
+                    "exchange": exchange,
+                    "name_en": entry.get("name_en"),
+                    "name_zh": entry.get("name_zh"),
+                    "title": f"PRICE ALERT: {entry.get('name_en')} ({ticker}) dropped {abs(change)}%",
+                    "text": (
+                        f"Price of {entry.get('name_en')} has dropped {abs(change)}% from previous close. "
+                        f"Current: {technical.get('current_price')}. RSI: {technical.get('rsi')}."
+                    ),
+                    "technical": technical,
+                    "published_at": datetime.now(timezone.utc).isoformat(),
+                    "fetched_at": datetime.now(timezone.utc).isoformat(),
+                    # One alert per ticker per day to avoid spamming the same drop
+                    "content_hash": content_hash("price_alert", ticker, datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                }
+                result = push_or_boost(alert_post)
+                if result == "new":
+                    stats["new"] += 1
+                elif result == "boosted":
+                    stats["boosted"] += 1
         
         # News fetch is the primary mission.
         df = fetch_news(ticker, limit)
