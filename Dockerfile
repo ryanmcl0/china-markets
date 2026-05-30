@@ -5,20 +5,21 @@ RUN apt-get update && apt-get install -y curl ca-certificates zstd && rm -rf /va
 # Install ollama binary
 RUN curl -fsSL https://ollama.ai/install.sh | sh
 
-# Create a non-root user
-RUN useradd -m -s /bin/bash monitor && \
+# Create a non-root user with specific UID/GID to match common NAS setups
+RUN groupadd -g 1000 monitor && \
+    useradd -u 1000 -g 1000 -m -s /bin/bash monitor && \
     mkdir -p /app/data && \
     chown -R monitor:monitor /app
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY --chown=monitor:monitor requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY poller/ poller/
-COPY processor/ processor/
-COPY entrypoint.sh .
-RUN chmod +x entrypoint.sh && chown monitor:monitor entrypoint.sh
+COPY --chown=monitor:monitor poller/ poller/
+COPY --chown=monitor:monitor processor/ processor/
+COPY --chown=monitor:monitor entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
 # Ensure the data directory is writable by the non-root user
 RUN mkdir -p /app/data/ollama && chown -R monitor:monitor /app/data
