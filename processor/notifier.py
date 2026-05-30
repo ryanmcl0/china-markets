@@ -147,6 +147,42 @@ def _dissemination_label(signal: str) -> str:
     return _DISSEMINATION_LABEL.get(key, _snake_to_title(key))
 
 
+def _format_china_time(published_at: str | None) -> str:
+    """Parse published_at and convert/format to China time."""
+    if not published_at:
+        return ""
+    
+    china_tz = pytz.timezone("Asia/Shanghai")
+    try:
+        # 1. Try ISO format (Reddit, RSS usually)
+        dt = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+        # If it has no timezone, assume UTC
+        if dt.tzinfo is None:
+            dt = pytz.UTC.localize(dt)
+        china_dt = dt.astimezone(china_tz)
+    except ValueError:
+        # 2. Try common formats from Chinese sources (Eastmoney often YYYY-MM-DD HH:MM:SS)
+        try:
+            formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"]
+            dt_naive = None
+            for fmt in formats:
+                try:
+                    dt_naive = datetime.strptime(published_at, fmt)
+                    break
+                except ValueError:
+                    continue
+            
+            if dt_naive:
+                # Eastmoney strings are already in China time
+                china_dt = china_tz.localize(dt_naive)
+            else:
+                return f"({published_at})"
+        except Exception:
+            return f"({published_at})"
+
+    return china_dt.strftime("%H:%M (CN)")
+
+
 def _divergence_label(divergence: str) -> str:
     key = (divergence or "none").lower()
     return _DIVERGENCE_LABEL.get(key, _snake_to_title(key))
@@ -198,6 +234,7 @@ def format_alert(post: dict[str, Any], analysis: dict[str, Any]) -> str:
     name = post.get("name_en") or post.get("name_zh") or ticker
     source = _format_source(post.get("source") or "")
     dissem = post.get("dissemination_count", 1)
+    china_time = _format_china_time(post.get("published_at"))
 
     # ── Header ──────────────────────────────────────────────
     body = []
@@ -208,7 +245,11 @@ def format_alert(post: dict[str, Any], analysis: dict[str, Any]) -> str:
     else:
         body.append(f"📊 <b>{_esc(name)}</b>")
 
-    subtitle_parts = [f"${_esc(ticker)}", f"Score {score}/10", _esc(source)]
+    subtitle_parts = [f"${_esc(ticker)}", f"Score {score}/10"]
+    if china_time:
+        subtitle_parts.append(china_time)
+    subtitle_parts.append(_esc(source))
+    
     if dissem > 1:
         subtitle_parts.append(_sources_str(dissem))
     body.append(f"<i>{' · '.join(subtitle_parts)}</i>")

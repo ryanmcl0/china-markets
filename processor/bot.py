@@ -37,6 +37,26 @@ from config_loader import load_config
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+AUTHORIZED_CHAT_IDS = [
+    c.strip() for c in os.environ.get("TELEGRAM_CHAT_ID", "").split(",") if c.strip()
+]
+
+
+def restricted(func):
+    """Decorator to restrict access to authorized chat IDs."""
+
+    async def wrapped(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+        if not update.effective_chat:
+            return
+        chat_id = str(update.effective_chat.id)
+        if chat_id not in AUTHORIZED_CHAT_IDS:
+            logger.warning("Unauthorized access attempt from chat_id=%s", chat_id)
+            if update.message:
+                await update.message.reply_text("⛔ Unauthorized. This incident has been logged.")
+            return
+        return await func(update, context, *args, **kwargs)
+
+    return wrapped
 
 
 # ──────────────────────────────────────────────────────────
@@ -67,6 +87,7 @@ def _is_paused() -> bool:
 # Command handlers
 # ──────────────────────────────────────────────────────────
 
+@restricted
 async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     queue_len = post_queue.get_queue().qsize()
     posts_today = db.post_count_today()
@@ -95,6 +116,7 @@ async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(text, parse_mode=ParseMode.HTML)
 
 
+@restricted
 async def cmd_summary(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     config = load_config()
     min_score = config.get("notifications", {}).get("score_digest_only", 5)
@@ -113,6 +135,7 @@ async def cmd_summary(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
 
+@restricted
 async def cmd_watchlist(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     config = load_config()
     watchlist = config.get("watchlist", [])
@@ -142,6 +165,7 @@ async def cmd_watchlist(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("\n".join(lines), parse_mode=ParseMode.HTML)
 
 
+@restricted
 async def cmd_pause(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not ctx.args:
         await update.message.reply_text("Usage: /pause 2h or /pause 30m")
@@ -163,6 +187,7 @@ async def cmd_pause(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"⏸️ Paused until {until_dt.isoformat()} (UTC).")
 
 
+@restricted
 async def cmd_add(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not ctx.args:
         await update.message.reply_text("Usage: /add TICKER name limit")
@@ -194,6 +219,7 @@ async def cmd_add(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"✅ Added {result['added']} to watchlist.")
 
 
+@restricted
 async def cmd_updatelimit(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if len(ctx.args) < 2:
         await update.message.reply_text("Usage: /updatelimit TICKER LIMIT")
@@ -214,6 +240,7 @@ async def cmd_updatelimit(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> Non
     )
 
 
+@restricted
 async def cmd_acted(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if len(ctx.args) < 2:
         await update.message.reply_text("Usage: /acted TICKER ACTION notes...")
@@ -229,6 +256,7 @@ async def cmd_acted(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"✅ Logged {action} for {ticker}.")
 
 
+@restricted
 async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     text = (
         "<b>Commands</b>\n"
@@ -252,7 +280,14 @@ async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     msg = update.message
     if not msg or not msg.text:
         return
-    chat_id = msg.chat_id
+    chat_id = str(msg.chat_id)
+
+    # Authorization check
+    if chat_id not in AUTHORIZED_CHAT_IDS:
+        logger.warning("Unauthorized access attempt from chat_id=%s", chat_id)
+        await msg.reply_text("⛔ Unauthorized. This incident has been logged.")
+        return
+
     text = msg.text.strip()
 
     # YES/NO replies finalise a pending confirmation, if any.
@@ -283,7 +318,7 @@ async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
 
-async def _handle_question(text: str, chat_id: int, msg, config: dict[str, Any]) -> None:
+async def _handle_question(text: str, chat_id: int | str, msg, config: dict[str, Any]) -> None:
     history = _get_session(chat_id)
     history.append({"role": "user", "content": text})
     system_prompt = llm.build_investor_context(config)
@@ -303,7 +338,7 @@ def _chunk(s: str, n: int) -> list[str]:
     return [s[i : i + n] for i in range(0, len(s), n)] or [""]
 
 
-async def _handle_portfolio_change(text: str, chat_id: int, msg, config: dict[str, Any]) -> None:
+async def _handle_portfolio_change(text: str, chat_id: int | str, msg, config: dict[str, Any]) -> None:
     action = llm.extract_portfolio_action(text, config)
     if not action or not action.get("action_type"):
         await msg.reply_text("Couldn't extract an action from that. Try being more specific.")
