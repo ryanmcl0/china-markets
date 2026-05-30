@@ -213,14 +213,21 @@ def digest_loop(stop_event: threading.Event) -> None:
 
 
 def _send_digest(rows: list[dict]) -> None:
+    china_tz = pytz.timezone("Asia/Shanghai")
+    now_china = datetime.now(china_tz).strftime("%H:%M")
+    
     if not rows:
-        notifier.send_message("<b>China Energy Market Digest</b>\n\nNo posts above threshold in the last 24h.")
+        notifier.send_message(f"<b>China Energy Market Digest — {now_china} (CN)</b>\n\nNo posts above threshold in the last 24h.")
         return
-    lines = [f"<b>China Energy Market Digest — {len(rows)} items above threshold</b>", ""]
+    
+    lines = [f"<b>China Energy Market Digest — {now_china} (CN) | {len(rows)} items</b>", ""]
     for r in rows[:20]:
         tickers = ", ".join(r.get("stocks_mentioned") or []) or "—"
+        china_time = notifier._format_china_time(r.get("published_at"))
+        time_str = f" {china_time}" if china_time else ""
+        
         lines.append(
-            f"• [{r['relevance_score']}/10] {tickers} — "
+            f"• [{r['relevance_score']}/10]{time_str} {tickers} — "
             f"{(r.get('action_recommendation') or 'n/a').upper()}"
         )
         summary = r.get("analyst_summary") or ""

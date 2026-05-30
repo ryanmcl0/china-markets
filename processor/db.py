@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS posts (
     action_time_horizon TEXT,
     action_conditions TEXT,
     rules_checked TEXT,
+    published_at TEXT,
     processed_at TEXT,
     created_at TEXT DEFAULT (datetime('now'))
 );
@@ -72,6 +73,11 @@ def _ensure_schema() -> None:
     os.makedirs(os.path.dirname(DB_PATH) or ".", exist_ok=True)
     with sqlite3.connect(DB_PATH) as conn:
         conn.executescript(_SCHEMA)
+        # Migration: add published_at if missing
+        try:
+            conn.execute("ALTER TABLE posts ADD COLUMN published_at TEXT")
+        except sqlite3.OperationalError:
+            pass  # Already exists
 
 
 @contextmanager
@@ -140,6 +146,7 @@ def insert_post(post: dict[str, Any], llm_out: dict[str, Any]) -> int:
         pm.get("time_horizon"),
         pm.get("conditions"),
         json.dumps(rules) if isinstance(rules, list) else rules,
+        post.get("published_at"),
         datetime.now(timezone.utc).isoformat(),
     )
     sql = """
@@ -153,8 +160,8 @@ def insert_post(post: dict[str, Any], llm_out: dict[str, Any]) -> int:
             relevance_score, urgency,
             action_recommendation, action_reasoning, action_confidence,
             action_time_horizon, action_conditions, rules_checked,
-            processed_at
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            published_at, processed_at
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """
     with connect() as conn:
         try:
@@ -191,7 +198,7 @@ def posts_since(hours: int, min_score: int) -> list[dict[str, Any]]:
     sql = """
         SELECT id, source, url, original_text, translation, analyst_summary,
                sentiment, category, stocks_mentioned, relevance_score, urgency,
-               action_recommendation, action_reasoning, created_at
+               action_recommendation, action_reasoning, published_at, created_at
         FROM posts
         WHERE created_at > ? AND relevance_score >= ?
         ORDER BY relevance_score DESC, created_at DESC

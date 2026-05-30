@@ -121,14 +121,22 @@ async def cmd_summary(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     config = load_config()
     min_score = config.get("notifications", {}).get("score_digest_only", 5)
     rows = db.posts_since(hours=24, min_score=min_score)
+    
+    china_tz = pytz.timezone("Asia/Shanghai")
+    now_china = datetime.now(china_tz).strftime("%H:%M")
+    
     if not rows:
-        await update.message.reply_text("No posts above threshold in the last 24h.")
+        await update.message.reply_text(f"No posts above threshold in the last 24h. (CN: {now_china})")
         return
-    lines = [f"<b>Last 24h — {len(rows)} items</b>", ""]
+    
+    lines = [f"<b>Last 24h — {now_china} (CN) | {len(rows)} items</b>", ""]
     for r in rows[:30]:
         tickers = ", ".join(r.get("stocks_mentioned") or []) or "—"
         action = (r.get("action_recommendation") or "n/a").upper()
-        lines.append(f"• [{r['relevance_score']}/10] {tickers} — {action}")
+        china_time = notifier._format_china_time(r.get("published_at"))
+        time_str = f" {china_time}" if china_time else ""
+        
+        lines.append(f"• [{r['relevance_score']}/10]{time_str} {tickers} — {action}")
         s = r.get("analyst_summary") or ""
         if s:
             lines.append(f"  <i>{s[:180]}</i>")
