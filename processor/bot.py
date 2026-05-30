@@ -17,6 +17,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import pytz
 from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import (
@@ -32,6 +33,7 @@ import db
 import intent
 import llm
 import post_queue
+import notifier
 from config_loader import load_config
 
 logger = logging.getLogger(__name__)
@@ -133,7 +135,10 @@ async def cmd_summary(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     for r in rows[:30]:
         tickers = ", ".join(r.get("stocks_mentioned") or []) or "—"
         action = (r.get("action_recommendation") or "n/a").upper()
-        china_time = notifier._format_china_time(r.get("published_at"))
+        
+        # Use published_at if available, fallback to created_at (which is UTC)
+        ts = r.get("published_at") or r.get("created_at")
+        china_time = notifier._format_china_time(ts, assume_utc=True)
         time_str = f" {china_time}" if china_time else ""
         
         lines.append(f"• [{r['relevance_score']}/10]{time_str} {tickers} — {action}")
