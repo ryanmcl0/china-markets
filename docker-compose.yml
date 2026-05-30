@@ -12,3 +12,10 @@ services:
       - ./config.yaml:/app/config.yaml
       - ./data:/app/data
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    # Cap CPU and Memory to prevent a compromised process from hammering the NAS
+    deploy:
+      resources:
+        limits:
+          memory: 4G
