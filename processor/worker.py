@@ -223,7 +223,10 @@ def _send_digest(rows: list[dict]) -> None:
     lines = [f"<b>China Energy Market Digest — {now_china} (CN) | {len(rows)} items</b>", ""]
     for r in rows[:20]:
         tickers = ", ".join(r.get("stocks_mentioned") or []) or "—"
-        china_time = notifier._format_china_time(r.get("published_at"))
+        
+        # Use published_at if available, fallback to created_at (which is UTC)
+        ts = r.get("published_at") or r.get("created_at")
+        china_time = notifier._format_china_time(ts, assume_utc=True)
         time_str = f" {china_time}" if china_time else ""
         
         lines.append(

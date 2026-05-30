@@ -147,21 +147,26 @@ def _dissemination_label(signal: str) -> str:
     return _DISSEMINATION_LABEL.get(key, _snake_to_title(key))
 
 
-def _format_china_time(published_at: str | None) -> str:
+def _format_china_time(published_at: str | None, assume_utc: bool = True) -> str:
     """Parse published_at and convert/format to China time."""
     if not published_at:
         return ""
     
     china_tz = pytz.timezone("Asia/Shanghai")
     try:
-        # 1. Try ISO format (Reddit, RSS usually)
-        dt = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+        # 1. Try ISO format or common timestamp formats
+        clean_ts = published_at.replace(" ", "T").replace("Z", "+00:00")
+        if "+" not in clean_ts and "T" in clean_ts:
+            if ":" in clean_ts:
+                clean_ts += "+00:00" # Assume UTC if no offset
+            
+        dt = datetime.fromisoformat(clean_ts)
         # If it has no timezone, assume UTC
         if dt.tzinfo is None:
             dt = pytz.UTC.localize(dt)
         china_dt = dt.astimezone(china_tz)
-    except ValueError:
-        # 2. Try common formats from Chinese sources (Eastmoney often YYYY-MM-DD HH:MM:SS)
+    except Exception:
+        # 2. Try common formats from Chinese sources
         try:
             formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"]
             dt_naive = None
@@ -173,8 +178,12 @@ def _format_china_time(published_at: str | None) -> str:
                     continue
             
             if dt_naive:
-                # Eastmoney strings are already in China time
-                china_dt = china_tz.localize(dt_naive)
+                if assume_utc:
+                    # Likely from our own DB 'created_at' or price_alert
+                    china_dt = pytz.UTC.localize(dt_naive).astimezone(china_tz)
+                else:
+                    # Eastmoney strings are already in China time
+                    china_dt = china_tz.localize(dt_naive)
             else:
                 return f"({published_at})"
         except Exception:

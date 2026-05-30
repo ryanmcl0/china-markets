@@ -100,12 +100,18 @@ def get_post_by_hash(url_hash: str) -> dict[str, Any] | None:
         return dict(row) if row else None
 
 
-def update_dissemination(url_hash: str, count: int) -> None:
+def update_dissemination(url_hash: str, count: int, published_at: str | None = None) -> None:
     with connect() as conn:
-        conn.execute(
-            "UPDATE posts SET dissemination_count = ?, processed_at = ? WHERE url_hash = ?",
-            (count, datetime.now(timezone.utc).isoformat(), url_hash),
-        )
+        if published_at:
+            conn.execute(
+                "UPDATE posts SET dissemination_count = ?, published_at = ?, processed_at = ? WHERE url_hash = ?",
+                (count, published_at, datetime.now(timezone.utc).isoformat(), url_hash),
+            )
+        else:
+            conn.execute(
+                "UPDATE posts SET dissemination_count = ?, processed_at = ? WHERE url_hash = ?",
+                (count, datetime.now(timezone.utc).isoformat(), url_hash),
+            )
 
 
 def insert_post(post: dict[str, Any], llm_out: dict[str, Any]) -> int:
@@ -168,10 +174,7 @@ def insert_post(post: dict[str, Any], llm_out: dict[str, Any]) -> int:
             conn.execute(sql, params)
             return conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         except sqlite3.IntegrityError:
-            conn.execute(
-                "UPDATE posts SET dissemination_count=?, processed_at=? WHERE url_hash=?",
-                (post.get("dissemination_count", 1), datetime.now(timezone.utc).isoformat(), post.get("content_hash")),
-            )
+            update_dissemination(post.get("content_hash"), post.get("dissemination_count", 1), post.get("published_at"))
             row = conn.execute("SELECT id FROM posts WHERE url_hash=?", (post.get("content_hash"),)).fetchone()
             return row[0] if row else 0
 
