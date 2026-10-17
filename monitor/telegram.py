@@ -74,23 +74,45 @@ def render(md: str) -> str:
     return out
 
 
-def chunk(text: str, limit: int = MAX_LEN) -> list[str]:
-    """Split on line boundaries so tags opened on a line close on it.
+_PRE_BLOCK = re.compile(r"<pre>.*?</pre>", re.DOTALL)
 
-    <pre> blocks are kept whole where possible.
+
+def _units(text: str) -> list[str]:
+    """Lines, except that a whole <pre>…</pre> block counts as one unit."""
+    units: list[str] = []
+    pos = 0
+    for m in _PRE_BLOCK.finditer(text):
+        units += text[pos:m.start()].split("\n")[:-1] if m.start() > pos else []
+        # Text on the same line before <pre> joins the block.
+        line_start = text.rfind("\n", 0, m.start()) + 1
+        prefix = text[max(pos, line_start):m.start()]
+        line_end = text.find("\n", m.end())
+        line_end = len(text) if line_end == -1 else line_end
+        units.append(prefix + text[m.start():line_end])
+        pos = line_end + 1
+    if pos <= len(text):
+        units += text[pos:].split("\n")
+    return units
+
+
+def chunk(text: str, limit: int = MAX_LEN) -> list[str]:
+    """Split on line boundaries, never inside a <pre> block.
+
+    Tags in our messages open and close on one line (or within one <pre>
+    block), so every part stays valid Telegram HTML.
     """
     if len(text) <= limit:
         return [text]
     parts: list[str] = []
     current = ""
-    for line in text.split("\n"):
-        while len(line) > limit:  # pathological single line
-            parts.append(line[:limit])
-            line = line[limit:]
-        if len(current) + len(line) + 1 > limit:
+    for unit in _units(text):
+        while len(unit) > limit:  # pathological single unit
+            parts.append(unit[:limit])
+            unit = unit[limit:]
+        if current and len(current) + len(unit) + 1 > limit:
             parts.append(current.rstrip("\n"))
             current = ""
-        current += line + "\n"
+        current += unit + "\n"
     if current.strip():
         parts.append(current.rstrip("\n"))
     return parts

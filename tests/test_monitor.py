@@ -174,3 +174,13 @@ def test_find_stock():
     assert find(stocks, "catl").ticker == "03750"
     assert find(stocks, "宁德时代").ticker == "03750"
     assert find(stocks, "nope") is None
+
+
+def test_chunk_never_splits_pre_block():
+    table = "<pre>" + "\n".join(f"row {i:02d} " + "y" * 30 for i in range(30)) + "</pre>"
+    text = "\n".join(["<b>Brief</b>"] + [f"para {i} " + "x" * 80 for i in range(30)] + [table, "<i>legend</i>", "<i>footer</i>"])
+    parts = telegram.chunk(text, limit=1500)
+    assert all(len(p) <= 1500 for p in parts)
+    for p in parts:
+        assert p.count("<pre>") == p.count("</pre>")
+    assert "\n".join(parts) == text
