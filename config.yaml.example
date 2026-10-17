@@ -63,6 +63,28 @@ themes:
     queries: ["核电机组", "核电 核准"]
     title_terms: ["核电", "核能", "核岛"]
 
+# Sunday sector update: the whole China nuclear / renewables market.
+# Same format as themes; the update searches both lists.
+sector_themes:
+  - name: "Nuclear"
+    queries: ["核电 核准", "核电机组", "小堆", "华龙一号"]
+    title_terms: ["核电", "核能", "核岛", "机组", "小堆", "核准"]
+  - name: "Solar"
+    queries: ["光伏 装机", "多晶硅 价格", "光伏 反内卷"]
+    title_terms: ["光伏", "多晶硅", "组件", "硅料"]
+  - name: "Wind"
+    queries: ["风电 装机", "海上风电"]
+    title_terms: ["风电", "风机"]
+  - name: "Storage"
+    queries: ["新型储能", "储能 招标"]
+    title_terms: ["储能"]
+  - name: "Grid"
+    queries: ["特高压", "电网投资"]
+    title_terms: ["电网", "特高压"]
+  - name: "Energy policy"
+    queries: ["国家能源局", "新能源 政策"]
+    title_terms: ["能源局", "新能源", "可再生", "电价"]
+
 # Who the messages are written for. Injected into every Claude prompt.
 investor:
   type: "long-term retail investor"

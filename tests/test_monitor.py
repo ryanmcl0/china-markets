@@ -184,3 +184,16 @@ def test_chunk_never_splits_pre_block():
     for p in parts:
         assert p.count("<pre>") == p.count("</pre>")
     assert "\n".join(parts) == text
+
+
+def test_schedule_sector_sunday_once():
+    sun = _utc(2026, 10, 18, 8, 30)
+    assert "sector" in schedule.due_tasks(sun, {})
+    assert "sector" not in schedule.due_tasks(sun, {"sector": schedule.week_key(sun)})
+    assert "sector" not in schedule.due_tasks(_utc(2026, 10, 17, 9, 0), {})  # Saturday is the watchlist brief
+
+
+def test_news_drops_etf_promos():
+    now = datetime(2026, 10, 17)
+    assert not relevant(_article("光伏ETF富国(560230)跟踪指数中证光伏产业指数上涨1.80%"), ["光伏"], 7, now)
+    assert relevant(_article("多晶硅库存继续累积 减产执行落地影响后续供需"), ["多晶硅"], 7, now)

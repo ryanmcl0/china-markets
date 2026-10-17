@@ -32,6 +32,7 @@ def _empty() -> dict[str, Any]:
         "limit_overrides": {},   # ticker -> limit set via /limit
         "sent": [],              # [{ts, kind, title}] recent outgoing messages
         "last_weekly": None,     # text of the last weekly brief, for continuity
+        "last_sector": None,     # text of the last sector update, for continuity
     }
 
 

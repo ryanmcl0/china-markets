@@ -1,7 +1,7 @@
 """Entry point.
 
   python -m monitor plan              decide what's due (stdlib only; prints GitHub step outputs)
-  python -m monitor run TASK [TASK…]  run tasks: close, filings, weekly, inbox
+  python -m monitor run TASK [TASK…]  run tasks: close, filings, weekly, sector, inbox
   python -m monitor serve             loop plan+run every 15 minutes (NAS / any always-on box)
   python -m monitor context TASK      print the data bundle Claude would get (debugging)
 
@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 
 from . import schedule, state as st, telegram
 
-TASK_ORDER = ["inbox", "close", "filings", "weekly"]
+TASK_ORDER = ["inbox", "close", "filings", "weekly", "sector"]
 
 log = logging.getLogger("monitor")
 
@@ -56,7 +56,8 @@ def run(tasks: list[str], dry_run: bool = False) -> int:
 
     state = st.load()
     sess = jobs.Session(cfg.load(), state, dry_run=dry_run)
-    runners = {"close": jobs.close, "filings": jobs.filings_check, "weekly": jobs.weekly, "inbox": jobs.inbox}
+    runners = {"close": jobs.close, "filings": jobs.filings_check, "weekly": jobs.weekly, "sector": jobs.sector,
+               "inbox": jobs.inbox}
     failures = 0
     for task in sorted(set(tasks), key=TASK_ORDER.index):
         log.info("task %s: start", task)

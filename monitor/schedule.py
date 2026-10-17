@@ -6,7 +6,8 @@ their start" rather than pinned to an exact minute. All times are UTC.
 
   close    weekdays from 08:45 (after the HK close at 08:00 UTC) — once per day
   filings  every 2 hours, 08:00–21:59 — CNINFO publishes mostly 08:00–14:00 UTC
-  weekly   Saturdays from 08:00 — once per ISO week
+  weekly   Saturdays from 08:00 — once per ISO week (the watchlist brief)
+  sector   Sundays from 08:00 — once per ISO week (the whole China nuclear/renewables market)
   inbox    whenever Telegram has unread messages for us
 """
 
@@ -44,6 +45,9 @@ def due_tasks(now: datetime, tasks_done: dict[str, str]) -> list[str]:
 
     if now.weekday() == 5 and _at_or_after(now, WEEKLY_AFTER) and tasks_done.get("weekly") != week_key(now):
         due.append("weekly")
+
+    if now.weekday() == 6 and _at_or_after(now, WEEKLY_AFTER) and tasks_done.get("sector") != week_key(now):
+        due.append("sector")
 
     return due
 
