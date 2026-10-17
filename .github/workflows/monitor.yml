@@ -1,0 +1,93 @@
+name: monitor
+
+# Every 15 minutes, 06:00–21:45 UTC. A cheap "plan" step decides whether
+# anything is due (close note, filings check, weekly brief, Telegram messages)
+# and the run exits in seconds when nothing is.
+#
+# The repo is public, so its logs are too: nothing here prints message
+# content, config or state. Config comes from the MONITOR_CONFIG secret;
+# state lives in the Actions cache, which isn't publicly downloadable.
+on:
+  schedule:
+    - cron: "*/15 6-21 * * *"
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Run now: close, filings, weekly, inbox (comma-separated)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: write # keepalive: re-enable the workflow so GitHub doesn't switch the schedule off
+
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    # Set the repository variable MONITOR_RUNNER=nas to hand over to the NAS container.
+    if: vars.MONITOR_RUNNER != 'nas'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      FORCE_TASK: ${{ inputs.task }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore state
+        uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: monitor-state-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: monitor-state-
+
+      - name: Plan
+        id: plan
+        run: python3 -m monitor plan >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        if: steps.plan.outputs.work == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        if: steps.plan.outputs.work == 'true'
+        run: pip install -q -r requirements.txt
+
+      - name: Install Claude Code
+        if: steps.plan.outputs.work == 'true'
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash > /dev/null
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Write config
+        if: steps.plan.outputs.work == 'true'
+        env:
+          MONITOR_CONFIG: ${{ secrets.MONITOR_CONFIG }}
+        run: printf '%s\n' "$MONITOR_CONFIG" > config.yaml
+
+      - name: Run
+        if: steps.plan.outputs.work == 'true'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          MONITOR_TASKS: ${{ steps.plan.outputs.tasks }}
+        run: python -m monitor run
+
+      - name: Keep schedule alive
+        if: steps.plan.outputs.keepalive == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/monitor.yml/enable"
+
+      - name: Save state
+        if: always() && (steps.plan.outputs.work == 'true' || steps.plan.outputs.keepalive == 'true')
+        uses: actions/cache/save@v4
+        with:
+          path: state
+          key: monitor-state-${{ github.run_id }}-${{ github.run_attempt }}
