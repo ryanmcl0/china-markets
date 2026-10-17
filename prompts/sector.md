@@ -20,4 +20,12 @@ Structure (bold labels, this order; skip a section if there's genuinely nothing)
 
 **What it means for the watchlist** — one or two lines at most, only where a development clearly bears on a name in the table.
 
-Bullets within sections, each one specific and quantified where possible ("NEA: 212 GW solar added Jan–Sep, +18% y/y"). Ignore stock-price chatter and non-China stories. Keep it under 550 words.
+**Ideas outside your watchlist** — zero to three listed companies *not* already in the watchlist table that this week's developments point to. The bar is high: only suggest a name when a specific development this week (a policy, approval, tender, price move, contract or result) makes a concrete case for it, and say "No new ideas this week" otherwise — never pad. For each idea:
+• **Name (exchange: ticker)** and what it does, in a few words.
+• The case: which development this week, and why this company is a direct beneficiary rather than a loose theme play. Say what it adds that the watchlist doesn't already cover.
+• Current price, valuation (P/E or P/B), and recent performance, from a search — and the main risk.
+It must be investable by a UK retail investor on IBKR: Hong Kong main board, or an A-share eligible for Northbound Stock Connect (Shanghai/Shenzhen main board or ChiNext constituents of the Connect indices). Check eligibility and say if you couldn't confirm it. Don't re-suggest names listed under "Ideas suggested in previous weeks" unless something material has changed — in that case, follow up on them briefly by name.
+
+Bullets within sections, each one specific and quantified where possible ("NEA: 212 GW solar added Jan–Sep, +18% y/y"). Ignore stock-price chatter and non-China stories. Keep it under 650 words.
+
+After the message, on its own final line, write a machine-readable record of the ideas you suggested, which the system strips before sending: `IDEAS: <ticker> <English name>; <ticker> <English name>` — or `IDEAS: none`.

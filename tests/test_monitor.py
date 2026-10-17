@@ -197,3 +197,22 @@ def test_news_drops_etf_promos():
     now = datetime(2026, 10, 17)
     assert not relevant(_article("光伏ETF富国(560230)跟踪指数中证光伏产业指数上涨1.80%"), ["光伏"], 7, now)
     assert relevant(_article("多晶硅库存继续累积 减产执行落地影响后续供需"), ["多晶硅"], 7, now)
+
+
+def test_split_ideas():
+    from monitor.jobs import split_ideas
+    body = "**Ideas**\n• something\n\nIDEAS: 601985 China National Nuclear Power; 01816 CGN Power"
+    text, ideas = split_ideas(body)
+    assert "IDEAS" not in text and text.endswith("• something")
+    assert ideas == [{"ticker": "601985", "name": "China National Nuclear Power"},
+                     {"ticker": "01816", "name": "CGN Power"}]
+    assert split_ideas("msg\n`IDEAS: none`") == ("msg", [])
+
+
+def test_idea_stock_parsing():
+    from monitor.jobs import idea_stock
+    assert (idea_stock("000922", "Jiadian").exchange, idea_stock("000922", "").currency) == ("XSHE", "CNY")
+    assert idea_stock("601985", "CNNP").exchange == "XSHG"
+    hk = idea_stock("1816.HK", "CGN Power")
+    assert (hk.ticker, hk.exchange, hk.currency) == ("01816", "HKEX", "HKD")
+    assert idea_stock("CGNPY", "ADR") is None

@@ -16,7 +16,7 @@ the message. Numbers in the scoreboards come from the data, not the model.
 | **China close** | Weekdays after the HK close (~09:45 UK), only if something triggered | Limit crossings, ±5% days, new 52-week lows, volume spikes — each attributed as market-wide, sector-wide or stock-specific, with the likely cause and what it means for an entry |
 | **New filing** | Within ~2 hours of publication | Material CNINFO filings (earnings pre-announcements, buybacks, insider buying/selling, placements, contracts, regulatory action), translated and read from the PDF |
 | **Weekly brief** | Saturday ~09:00 UK | What drove the market, what changed per company, an entry radar against your limits, thesis check (incl. thorium/TMSR news), next week's events, scoreboard |
-| **Sector update** | Sunday ~09:00 UK | The whole China nuclear & renewables market, not just the watchlist: approvals and installations, solar/wind/storage prices, grid build-out, NEA/NDRC policy, with sources — plus a line on what it means for the watchlist |
+| **Sector update** | Sunday ~09:00 UK | The whole China nuclear & renewables market, not just the watchlist: approvals and installations, solar/wind/storage prices, grid build-out, NEA/NDRC policy, with sources — plus what it means for the watchlist, and 0–3 investable ideas outside it (Stock Connect / HK) tied to that week's news, with prices from the data and suggestions remembered so they aren't repeated |
 | **Replies** | Within ~20 minutes of messaging the bot | Commands below, or any free-text question |
 
 Telegram commands: `/now` scoreboard · `/stock hailu` one stock in detail ·
