@@ -33,6 +33,7 @@ def _empty() -> dict[str, Any]:
         "sent": [],              # [{ts, kind, title}] recent outgoing messages
         "last_weekly": None,     # text of the last weekly brief, for continuity
         "last_sector": None,     # text of the last sector update, for continuity
+        "ideas": [],             # [{date, ticker, name}] suggested in sector updates
     }
 
 
@@ -59,6 +60,7 @@ def _prune(state: dict[str, Any]) -> None:
     for key in ("alerted_filings", "last_signal"):
         state[key] = {k: v for k, v in state[key].items() if str(v)[:10] >= cutoff}
     state["sent"] = state["sent"][-50:]
+    state["ideas"] = state["ideas"][-30:]
 
 
 def is_paused(state: dict[str, Any], now: datetime | None = None) -> bool:

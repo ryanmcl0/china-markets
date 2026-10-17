@@ -139,6 +139,7 @@ def context(
     signals: list[Signal] | None = None,
     previous_brief: str | None = None,
     previous_label: str = "weekly brief",
+    past_ideas: list[dict] | None = None,
 ) -> str:
     now = datetime.now(timezone.utc)
     parts = [
@@ -197,6 +198,10 @@ def context(
                 lines += [f"- {a.published} [{a.source}] {a.title} — {a.snippet[:200]} {a.url}" for a in arts[:10]]
         if lines:
             parts.append("## Theme news\n" + "\n".join(lines))
+
+    if past_ideas:
+        parts.append("## Ideas suggested in previous weeks\n" + "\n".join(
+            f"- {i['date']}: {i['ticker']} {i['name']}" for i in past_ideas))
 
     if previous_brief:
         parts.append(f"## Your previous {previous_label} (for continuity — don't repeat it)\n" + previous_brief)

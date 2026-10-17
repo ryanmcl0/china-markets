@@ -160,7 +160,58 @@ def weekly(sess: Session, chat_id: str | None = None, mark: bool = True) -> None
             sess.state["last_weekly"] = body
 
 
-# ── sector ───────────────────────────────────────────────────────────────────
+# ── sector ───
+
+_IDEAS_LINE = re.compile(r"^\s*`?IDEAS:\s*(.*?)`?\s*$", re.MULTILINE)
+
+
+def split_ideas(body: str) -> tuple[str, list[dict[str, str]]]:
+    """Strip the trailing machine-readable IDEAS line; return (message, ideas)."""
+    ideas: list[dict[str, str]] = []
+    for m in _IDEAS_LINE.finditer(body):
+        for item in m.group(1).split(";"):
+            item = item.strip()
+            if not item or item.lower() == "none":
+                continue
+            ticker, _, name = item.partition(" ")
+            ideas.append({"ticker": ticker.strip(), "name": name.strip()})
+    return _IDEAS_LINE.sub("", body).strip(), ideas
+
+
+def idea_stock(ticker: str, name: str) -> Stock | None:
+    """A minimal Stock for pricing a suggested ticker (A-share 6 digits, HK 4–5 digits)."""
+    t = ticker.strip().upper().removesuffix(".HK").removesuffix(".SH").removesuffix(".SZ")
+    if re.fullmatch(r"\d{6}", t):
+        exchange = "XSHG" if t[0] in "69" else "XSHE"
+        currency = "CNY"
+    elif re.fullmatch(r"\d{4,5}", t):
+        t, exchange, currency = t.zfill(5), "HKEX", "HKD"
+    else:
+        return None
+    return Stock(ticker=t, exchange=exchange, name_en=name or t, short_en=t, short_zh=t, currency=currency,
+                 limit=None, tier="idea", status="idea", thesis="", filings_code=None)
+
+
+def idea_prices(ideas: list[dict[str, str]], mkt_bench: dict) -> str:
+    lines = []
+    for i in ideas:
+        s = idea_stock(i["ticker"], i["name"])
+        if not s:
+            continue
+        key = "HK" if s.is_hk else "A"
+        try:
+            m = market.compute(s.ticker, market.history(s), mkt_bench[key], market.BENCHMARKS[key])
+        except Exception:
+            logger.warning("could not price idea %s", s.ticker)
+            continue
+        lines.append(
+            f"{html.escape(s.ticker)} {s.price(m.close)} ({m.date}) · 1m {report.pct(m.chg_1m)} · "
+            f"3m {report.pct(m.chg_3m)} · 52w {s.price(m.low_52w)}–{s.price(m.high_52w)}"
+        )
+    return ("\n\n<b>Idea prices</b> (latest close)\n" + "\n".join(lines)) if lines else ""
+
+
+# ───────────────────────────────────────────────────────────────────
 
 def sector(sess: Session, chat_id: str | None = None, mark: bool = True) -> None:
     """Sunday update on the whole China nuclear / renewables market, not just the watchlist."""
@@ -170,12 +221,16 @@ def sector(sess: Session, chat_id: str | None = None, mark: bool = True) -> None
         for t in sess.config.get("sector_themes", []) + sess.config.get("themes", [])
     }
     ctx = report.context(sess.config, sess.stocks, metrics, mkt, theme_news=themes,
-                         previous_brief=sess.state.get("last_sector"), previous_label="sector update")
+                         previous_brief=sess.state.get("last_sector"), previous_label="sector update",
+                         past_ideas=sess.state.get("ideas"))
     body = claude.compose("sector", ctx)
+    ideas: list[dict[str, str]] = []
+    if body:
+        body, ideas = split_ideas(body)
 
     header = f"🌏 <b>China energy market · week to {datetime.now(UK):%d %b}</b>\n\n"
     if body:
-        text = header + telegram.render(body) + FOOTER
+        text = header + telegram.render(body) + (idea_prices(ideas, market.benchmarks()) if ideas else "") + FOOTER
     else:
         lines = []
         for name, arts in themes.items():
@@ -189,6 +244,8 @@ def sector(sess: Session, chat_id: str | None = None, mark: bool = True) -> None
         sess.state["tasks"]["sector"] = schedule.week_key(datetime.now(timezone.utc))
         if body:
             sess.state["last_sector"] = body
+    # Recorded for on-demand /sector too, so the same names aren't suggested again.
+    sess.state["ideas"] += [{"date": date.today().isoformat(), **i} for i in ideas]
 
 
 # ── inbox ────────────────────────────────────────────────────────────────────
