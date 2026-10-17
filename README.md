@@ -16,10 +16,12 @@ the message. Numbers in the scoreboards come from the data, not the model.
 | **China close** | Weekdays after the HK close (~09:45 UK), only if something triggered | Limit crossings, ±5% days, new 52-week lows, volume spikes — each attributed as market-wide, sector-wide or stock-specific, with the likely cause and what it means for an entry |
 | **New filing** | Within ~2 hours of publication | Material CNINFO filings (earnings pre-announcements, buybacks, insider buying/selling, placements, contracts, regulatory action), translated and read from the PDF |
 | **Weekly brief** | Saturday ~09:00 UK | What drove the market, what changed per company, an entry radar against your limits, thesis check (incl. thorium/TMSR news), next week's events, scoreboard |
+| **Sector update** | Sunday ~09:00 UK | The whole China nuclear & renewables market, not just the watchlist: approvals and installations, solar/wind/storage prices, grid build-out, NEA/NDRC policy, with sources — plus a line on what it means for the watchlist |
 | **Replies** | Within ~20 minutes of messaging the bot | Commands below, or any free-text question |
 
 Telegram commands: `/now` scoreboard · `/stock hailu` one stock in detail ·
 `/filings [name]` material filings, 14 days · `/brief` weekly brief now ·
+`/sector` sector update now ·
 `/limit hailu 7.0` change a buy limit · `/pause 4h` / `/resume` · `/status` · `/help`.
 
 ## Why it's built this way
@@ -51,7 +53,7 @@ monitor/
   signals.py    price signals + market/sector/stock attribution
   report.py     scoreboard, fallbacks, the data bundle Claude reads
   claude.py     runs `claude -p` (web search/fetch only)
-  jobs.py       close, filings, weekly, inbox
+  jobs.py       close, filings, weekly, sector, inbox
 prompts/        what Claude is asked to write, per message type
 .github/workflows/monitor.yml
 Dockerfile, docker-compose.yml   NAS option
@@ -79,7 +81,7 @@ gh workflow run monitor -f task=weekly    # try it
 Without `CLAUDE_CODE_OAUTH_TOKEN` everything still runs; messages are just the
 facts without the analysis.
 
-**Changing the watchlist:** edit `config.yaml`, then
+**Changing the watchlist or sector topics** (`watchlist`, `themes`, `sector_themes`): edit `config.yaml`, then
 `gh secret set MONITOR_CONFIG < config.yaml`. Buy limits can also be changed
 from Telegram with `/limit` (stored in the bot's state).
 

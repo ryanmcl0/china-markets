@@ -23,7 +23,8 @@ HELP = """<b>Commands</b>
 /now — scoreboard: prices, moves vs index, distance from your limits
 /stock <i>name</i> — one stock: numbers, recent filings, headlines, thesis
 /filings [<i>name</i>] — material filings, last 14 days
-/brief — this week's brief, now
+/brief — this week's watchlist brief, now
+/sector — China nuclear &amp; renewables market update, now
 /limit <i>name price</i> — change a buy limit (e.g. /limit hailu 7.0)
 /pause <i>4h</i> · /resume — mute alerts
 /status — what ran when
@@ -159,6 +160,37 @@ def weekly(sess: Session, chat_id: str | None = None, mark: bool = True) -> None
             sess.state["last_weekly"] = body
 
 
+# ── sector ───────────────────────────────────────────────────────────────────
+
+def sector(sess: Session, chat_id: str | None = None, mark: bool = True) -> None:
+    """Sunday update on the whole China nuclear / renewables market, not just the watchlist."""
+    metrics, mkt = sess.snapshot()
+    themes = {
+        t["name"]: news.theme(t.get("queries", []), t.get("title_terms", []), max_age_days=8)
+        for t in sess.config.get("sector_themes", []) + sess.config.get("themes", [])
+    }
+    ctx = report.context(sess.config, sess.stocks, metrics, mkt, theme_news=themes,
+                         previous_brief=sess.state.get("last_sector"), previous_label="sector update")
+    body = claude.compose("sector", ctx)
+
+    header = f"🌏 <b>China energy market · week to {datetime.now(UK):%d %b}</b>\n\n"
+    if body:
+        text = header + telegram.render(body) + FOOTER
+    else:
+        lines = []
+        for name, arts in themes.items():
+            if arts:
+                lines.append(f"<b>{html.escape(name)}</b>")
+                lines += [f'{a.published[5:10]} <a href="{html.escape(a.url)}">{html.escape(a.title)}</a>' for a in arts[:5]]
+                lines.append("")
+        text = header + ("\n".join(lines).strip() or "No sector news found this week.")
+    sess.send(text, "sector", "sector update", chat_id=chat_id, force=chat_id is not None)
+    if mark:
+        sess.state["tasks"]["sector"] = schedule.week_key(datetime.now(timezone.utc))
+        if body:
+            sess.state["last_sector"] = body
+
+
 # ── inbox ────────────────────────────────────────────────────────────────────
 
 def inbox(sess: Session) -> None:
@@ -225,6 +257,10 @@ def handle(sess: Session, text: str, chat_id: str) -> str | None:
 
     if cmd == "/brief":
         weekly(sess, chat_id=chat_id, mark=False)
+        return None
+
+    if cmd == "/sector":
+        sector(sess, chat_id=chat_id, mark=False)
         return None
 
     if cmd == "/limit":

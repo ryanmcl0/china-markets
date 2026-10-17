@@ -138,6 +138,7 @@ def context(
     theme_news: dict[str, list[Article]] | None = None,
     signals: list[Signal] | None = None,
     previous_brief: str | None = None,
+    previous_label: str = "weekly brief",
 ) -> str:
     now = datetime.now(timezone.utc)
     parts = [
@@ -198,5 +199,5 @@ def context(
             parts.append("## Theme news\n" + "\n".join(lines))
 
     if previous_brief:
-        parts.append("## Your previous weekly brief (for continuity — don't repeat it)\n" + previous_brief)
+        parts.append(f"## Your previous {previous_label} (for continuity — don't repeat it)\n" + previous_brief)
     return "\n\n".join(parts)
