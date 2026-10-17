@@ -1,86 +1,69 @@
-# China Energy Market Monitor — config template
-# Copy to config.yaml (gitignored) and edit for your watchlist.
-# Restart after changes: docker compose restart cn-market-monitor
-
-# ── SECTOR ───────────────────────────────────────────────────────────────────
-sector:
-  name: "China Energy Market"
-  primary_language: "zh"
-  secondary_language: "en"
-  market_hours: "09:30-15:00"
-  market_timezone: "Asia/Shanghai"
-
-# ── WATCHLIST ─────────────────────────────────────────────────────────────────
-# exchange: XSHE = Shenzhen | XSHG = Shanghai | HKEX = Hong Kong
-# status: watching / holding / exited
-# portfolio_weight: decimal, e.g. 0.10 = 10%
+# China energy watchlist monitor — configuration template.
+#
+# Copy to config.yaml (gitignored) and edit. For GitHub Actions, upload it as
+# the MONITOR_CONFIG secret:   gh secret set MONITOR_CONFIG < config.yaml
+# On the NAS it's bind-mounted into the container.
 
 watchlist:
+  # exchange: XSHE = Shenzhen | XSHG = Shanghai | HKEX = Hong Kong
+  # short_en: up to 9 characters, used in the phone-width scoreboard.
+  # short_zh: the exchange short name (证券简称) — news search keys on it,
+  #           so it must match how Chinese media write the name.
+  # filings_code: A-share code for exchange filings. Defaults to the ticker
+  #           for A-shares; set it for H-shares that also list in China.
+  # gtc_limit: your buy limit, in the listing currency. /limit in Telegram
+  #           overrides it without editing this file.
+  # tags: include one of core / speculative (default tier is satellite).
+
   - ticker: "002255"
     name_en: "Suzhou Hailu Heavy Industry"
-    name_zh: "苏州海陆重工"
+    short_en: "Hailu"
+    short_zh: "海陆重工"
     exchange: "XSHE"
     currency: "CNY"
     gtc_limit: 10.50
-    portfolio_weight: 0.15
-    status: "watching"
-    horizon: "5-10 years"
-    thesis: "Your investment thesis here — injected into every LLM prompt for this stock."
-    tags: [core]
+    status: "watching"          # watching / holding / exited
+    thesis: >
+      Confirmed TMSR-LF1 safety heat exchanger contract — direct thorium
+      supply-chain exposure ahead of the 10MW demo (2029) and 100MW (2035).
+    tags: [thorium, nuclear, core]
 
-  - ticker: "3750"
-    name_en: "CATL"
-    name_zh: "宁德时代"
+  - ticker: "03750"
+    name_en: "CATL (H)"
+    short_en: "CATL-H"
+    short_zh: "宁德时代"
     exchange: "HKEX"
     currency: "HKD"
+    filings_code: "300750"      # CATL's Shenzhen listing files the announcements
     gtc_limit: 628.00
-    portfolio_weight: 0.15
     status: "watching"
-    horizon: "5-10 years"
-    thesis: "Your thesis here."
-    tags: [core]
+    thesis: >
+      World's largest battery maker; long-run growth in grid storage.
+    tags: [battery, storage, core]
 
-# ── KEYWORDS ─────────────────────────────────────────────────────────────────
-# Used to filter Reddit and RSS content.
-# AKShare pulls per-ticker directly — keywords not needed there.
-keywords:
-  tickers:
-    - "002255"
-    - "3750"
-  companies_en:
-    - "Suzhou Hailu"
-    - "CATL"
-    - "Contemporary Amperex"
-  companies_zh:
-    - "苏州海陆"
-    - "宁德时代"
-  sector_terms:
-    - "China energy"
-    - "energy storage"
-    - "battery"
+  - ticker: "600111"
+    name_en: "China Northern Rare Earth"
+    short_en: "N.RareEar"
+    short_zh: "北方稀土"
+    exchange: "XSHG"
+    currency: "CNY"
+    gtc_limit: 44.00
+    status: "watching"
+    thesis: >
+      Operator of Bayan Obo — rare earths plus China's thorium tailings.
+    tags: [rare-earth, thorium]
 
-# ── DATA SOURCES ──────────────────────────────────────────────────────────────
-akshare:
-  poll_interval_minutes: 20
-  news_limit: 20
-  include_hk: true
+# Theme news for the weekly brief. A headline must contain one of the
+# title_terms to count — that's what keeps unrelated stories out.
+themes:
+  - name: "Thorium / molten salt reactors"
+    queries: ["钍基熔盐堆", "熔盐堆", "钍"]
+    title_terms: ["钍", "熔盐", "TMSR"]
+  - name: "China nuclear build-out"
+    queries: ["核电机组", "核电 核准"]
+    title_terms: ["核电", "核能", "核岛"]
 
-reddit:
-  enabled: false              # requires REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET in .env
-  poll_interval_minutes: 30
-  subreddits:
-    - r/EmergingMarkets
-    - r/ChinaStocks
-
-rss:
-  enabled: false
-  poll_interval_minutes: 30
-  feeds:
-    - name: "Yicai Global"
-      url: "https://www.yicaiglobal.com/rss"
-
-# ── INVESTOR PROFILE ─────────────────────────────────────────────────────────
-# Injected into every LLM prompt for personalised recommendations.
+# Who the messages are written for. Injected into every Claude prompt.
 investor:
   type: "long-term retail investor"
   country: "UK"
@@ -88,35 +71,11 @@ investor:
   bias: "buy dips, do not chase spikes"
   risk_tolerance: "medium-high"
   notes: >
-    Interested in thesis-confirming news above all else.
-    Prefers to enter on weakness rather than momentum.
-    Not a day trader — ignores short-term noise.
+    Interested in thesis-confirming news above all else. Prefers to enter
+    on weakness rather than momentum. Short-term volatility is irrelevant.
 
-# ── INVESTING RULES ───────────────────────────────────────────────────────────
-# Checked by the LLM against every recommendation.
 investing_rules:
-  - "Never recommend chasing a stock that has risen >15% in a single session"
-  - "Only recommend adding to a position if the original thesis is confirmed"
-  - "A falling RSI below 35 alongside bullish news is a stronger buy signal than bullish news alone"
-  - "Dissemination across multiple sources within 2 hours is a signal amplifier, not noise"
-
-# ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
-notifications:
-  score_immediate: 9          # push any time, day or night
-  score_market_hours: 7       # push during market hours only
-  score_digest_only: 5        # include in /summary only
-  score_discard: 4            # store in DB, never notify
-  daily_digest_time: "08:00"  # local time for morning digest
-  digest_timezone: "Europe/London"
-  quiet_hours:
-    enabled: true
-    timezone: "Europe/London"
-    start: "23:00"
-    end: "07:00"
-
-# ── LLM ──────────────────────────────────────────────────────────────────────
-llm:
-  model: "qwen2.5:3b-instruct-q4_K_M"  # ~2.0 GB RAM, fast on 8 GB NAS
-  # model: "qwen2.5:7b"                # ~4.5 GB RAM, higher quality
-  temperature: 0.2
-  max_tokens: 1024
+  - "Never chase a stock that has risen >15% in a single session"
+  - "Only add to a position if the thesis is confirmed — not just price moving"
+  - "Macro noise (US tariffs, property sector, geopolitics) is not a reason to sell thesis stocks"
+  - "For speculative positions require a higher evidence bar before adding"

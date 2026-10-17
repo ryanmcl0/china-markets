@@ -1,21 +1,15 @@
+# Run on a NAS instead of GitHub Actions. Run one or the other, never both:
+# two copies would send every alert twice and race for Telegram messages.
+# Before starting this, set the repo variable MONITOR_RUNNER=nas to pause Actions:
+#   gh variable set MONITOR_RUNNER --body nas
 services:
-
-  cn-market-monitor:
+  monitor:
     build: .
     env_file: .env
-    environment:
-      OLLAMA_URL: http://localhost:11434
-      OLLAMA_KEEP_ALIVE: "0s"
-      DB_PATH: /app/data/china.db
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     volumes:
-      - ./config.yaml:/app/config.yaml
-      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+      - ./state:/app/state
     restart: unless-stopped
+    mem_limit: 1g
     security_opt:
       - no-new-privileges:true
-    # Cap CPU and Memory to prevent a compromised process from hammering the NAS
-    deploy:
-      resources:
-        limits:
-          memory: 4G
