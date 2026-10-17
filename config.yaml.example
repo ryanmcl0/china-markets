@@ -13,7 +13,8 @@ watchlist:
   #           for A-shares; set it for H-shares that also list in China.
   # gtc_limit: your buy limit, in the listing currency. /limit in Telegram
   #           overrides it without editing this file.
-  # tags: include one of core / speculative (default tier is satellite).
+  # tags: include one of core / speculative / watch (default tier is satellite).
+  #       Watch-only names: leave out gtc_limit; they're monitored for news only.
 
   - ticker: "002255"
     name_en: "Suzhou Hailu Heavy Industry"

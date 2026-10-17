@@ -216,3 +216,17 @@ def test_idea_stock_parsing():
     hk = idea_stock("1816.HK", "CGN Power")
     assert (hk.ticker, hk.exchange, hk.currency) == ("01816", "HKEX", "HKD")
     assert idea_stock("CGNPY", "ADR") is None
+
+
+def test_news_drops_hk_holding_disclosures():
+    now = datetime(2026, 10, 17)
+    assert not relevant(_article("贝莱德在哈尔滨电气的H股好仓比例下降0.91%至4.28%"), ["哈尔滨电气"], 7, now)
+
+
+def test_watch_tier():
+    from monitor.config import stocks
+    cfg = {"watchlist": [{"ticker": "600111", "exchange": "XSHG", "tags": ["rare-earth", "watch"]},
+                         {"ticker": "01133", "exchange": "HKEX", "gtc_limit": 11.1, "tags": ["core"]}]}
+    s = stocks(cfg)
+    assert (s[0].tier, s[0].limit, s[0].filings_code) == ("watch", None, "600111")
+    assert (s[1].tier, s[1].filings_code, s[1].currency) == ("core", None, "HKD")

@@ -24,7 +24,7 @@ Structure (bold labels, this order; skip a section if there's genuinely nothing)
 • **Name (exchange: ticker)** and what it does, in a few words.
 • The case: which development this week, and why this company is a direct beneficiary rather than a loose theme play. Say what it adds that the watchlist doesn't already cover.
 • Current price, valuation (P/E or P/B), and recent performance, from a search — and the main risk.
-It must be investable by a UK retail investor on IBKR: Hong Kong main board, or an A-share eligible for Northbound Stock Connect (Shanghai/Shenzhen main board or ChiNext constituents of the Connect indices). Check eligibility and say if you couldn't confirm it. Don't re-suggest names listed under "Ideas suggested in previous weeks" unless something material has changed — in that case, follow up on them briefly by name.
+It must be investable by a UK retail investor on IBKR: the Hong Kong main board, or a Shanghai/Shenzhen *main-board* A-share eligible for Northbound Stock Connect. ChiNext and STAR shares (codes 300/301/688) are restricted to institutional investors under Stock Connect, so for those companies suggest the HK listing if there is one, or skip them. When a company has both A and H shares, compare the prices and say which is cheaper. Check eligibility and say if you couldn't confirm it. Don't re-suggest names listed under "Ideas suggested in previous weeks" unless something material has changed — in that case, follow up on them briefly by name.
 
 Bullets within sections, each one specific and quantified where possible ("NEA: 212 GW solar added Jan–Sep, +18% y/y"). Ignore stock-price chatter and non-China stories. Keep it under 650 words.
 

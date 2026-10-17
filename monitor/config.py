@@ -27,7 +27,7 @@ class Stock:
     short_zh: str            # exchange short name, used for news search
     currency: str
     limit: float | None
-    tier: str                # core / satellite / speculative
+    tier: str                # core / satellite / speculative / watch
     status: str
     thesis: str
     filings_code: str | None  # A-share code for CNINFO filings (HK names: their A-share twin)
@@ -53,7 +53,7 @@ def load(path: Path | None = None) -> dict[str, Any]:
 
 
 def _tier(tags: list[str]) -> str:
-    for t in ("core", "speculative"):
+    for t in ("core", "speculative", "watch"):
         if t in tags:
             return t
     return "satellite"
