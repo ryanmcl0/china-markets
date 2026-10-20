@@ -37,6 +37,8 @@ jobs:
       FORCE_TASK: ${{ inputs.task }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false # don't leave GITHUB_TOKEN in .git/config for later steps
 
       - name: Restore state
         uses: actions/cache/restore@v4
