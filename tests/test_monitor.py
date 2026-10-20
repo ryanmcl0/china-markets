@@ -230,3 +230,12 @@ def test_watch_tier():
     s = stocks(cfg)
     assert (s[0].tier, s[0].limit, s[0].filings_code) == ("watch", None, "600111")
     assert (s[1].tier, s[1].filings_code, s[1].currency) == ("core", None, "HKD")
+
+
+def test_claude_fetch_allowlist():
+    from monitor import claude
+
+    perms = claude.web_permissions().split(",")
+    assert perms[0] == "WebSearch"
+    assert "WebFetch(domain:reuters.com)" in perms and "WebFetch(domain:*.reuters.com)" in perms
+    assert not any(p == "WebFetch" for p in perms)  # never unrestricted
